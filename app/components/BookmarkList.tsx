@@ -49,7 +49,6 @@ export default function BookmarkList() {
             table: 'bookmarks',
           },
           (payload) => {
-            console.log('Bookmarks changed: ', payload);
             // Refetch bookmarks when changes occur
             fetchBookmarks()
           }
@@ -62,7 +61,6 @@ export default function BookmarkList() {
             table: 'bookmarks' 
           },
           (payload) => {
-            console.log('Realtime DELETE', payload);
             fetchBookmarks();
           }
         )
