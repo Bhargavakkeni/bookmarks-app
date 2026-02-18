@@ -10,30 +10,30 @@ export default function BookmarkList() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const fetchBookmarks = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching bookmarks:', error)
+    } else {
+      setBookmarks(data || [])
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
 
-    const fetchBookmarks = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching bookmarks:', error)
-      } else {
-        setBookmarks(data || [])
-      }
-      setLoading(false)
-    }
 
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -44,14 +44,26 @@ export default function BookmarkList() {
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'bookmarks',
-            filter: `user_id=eq.${user.id}`,
           },
-          () => {
+          (payload) => {
+            console.log('Bookmarks changed: ', payload);
             // Refetch bookmarks when changes occur
             fetchBookmarks()
+          }
+        )
+        .on(
+          'postgres_changes',
+          { 
+            event: 'DELETE', 
+            schema: 'public', 
+            table: 'bookmarks' 
+          },
+          (payload) => {
+            console.log('Realtime DELETE', payload);
+            fetchBookmarks();
           }
         )
         .subscribe()
@@ -79,6 +91,7 @@ export default function BookmarkList() {
       console.error('Error deleting bookmark:', error)
       alert('Failed to delete bookmark')
     }
+    fetchBookmarks()
   }
 
   if (loading) {
@@ -118,7 +131,7 @@ export default function BookmarkList() {
             </div>
             <button
               onClick={() => handleDelete(bookmark.id)}
-              className="ml-4 rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 transition-colors"
+              className="ml-4 rounded-md bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 transition-colors cursor-pointer"
             >
               Delete
             </button>
